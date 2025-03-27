@@ -49,6 +49,8 @@ class MainActivity : FragmentActivity() {
 }
 
 
+
+
 @Composable
 fun AttendanceScreen(context: Context) {
     var authStatus by remember { mutableStateOf("Click to mark attendance") }
