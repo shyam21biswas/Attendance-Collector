@@ -177,7 +177,7 @@ fun getLocation(
     if (!isLocationEnabled(context)) {
         onLocationReceived("Please turn on location services")
         // Optionally, you can open the location settings:
-         context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         return
     }
 
@@ -187,7 +187,10 @@ fun getLocation(
         return
     }
 
-    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+    fusedLocationClient.getCurrentLocation(
+        com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+        null // You can pass a CancellationToken if needed
+    ).addOnSuccessListener { location ->
         if (location != null) {
             onLocationReceived("Location: ${location.latitude}, ${location.longitude}")
         } else {
