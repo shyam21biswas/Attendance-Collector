@@ -15,7 +15,11 @@ import com.example.attendancecollector.ui.theme.AttendanceCollectorTheme
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.provider.Settings
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 
@@ -156,6 +160,12 @@ fun authenticateUser(activity: FragmentActivity, onResult: (String) -> Unit) {
         else -> onResult("Biometric authentication not supported on this device.")
     }
 }
+// Helper function to check if location services are enabled
+fun isLocationEnabled(context: Context): Boolean {
+    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+}
 
 @SuppressLint("MissingPermission")
 fun getLocation(
@@ -163,7 +173,16 @@ fun getLocation(
     fusedLocationClient: FusedLocationProviderClient,
     onLocationReceived: (String) -> Unit
 ) {
-    if (!hasLocationPermissions(context)) {
+    // Check if location services are enabled
+    if (!isLocationEnabled(context)) {
+        onLocationReceived("Please turn on location services")
+        // Optionally, you can open the location settings:
+         context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+        return
+    }
+
+    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+        ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
         onLocationReceived("Permission not granted")
         return
     }
