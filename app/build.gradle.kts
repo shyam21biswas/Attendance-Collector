@@ -59,4 +59,11 @@ dependencies {
 
     implementation ("androidx.biometric:biometric:1.2.0-alpha05")
     implementation ("com.google.android.gms:play-services-location:21.0.1")
+
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.compose.material3:material3:1.2.0")
+
+
 }

@@ -51,14 +51,27 @@ class MainActivity : FragmentActivity() {
 
 
 
+
+
 @Composable
 fun AttendanceScreen(context: Context) {
     var authStatus by remember { mutableStateOf("Click to mark attendance") }
     var location by remember { mutableStateOf("Location: Not Available") }
 
     val locationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    val activity = context as? FragmentActivity // Get the activity from context
+    val activity = context as? FragmentActivity
 
+    // Permission Request Launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            getLocation(context, locationClient) { loc -> location = loc }
+        } else {
+            location = "Location permission denied"
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -75,7 +88,16 @@ fun AttendanceScreen(context: Context) {
                 authenticateUser(act) { result ->
                     authStatus = result
                     if (result == "Attendance Confirmed!") {
-                        getLocation(context, locationClient) { loc -> location = loc }
+                        if (hasLocationPermissions(context)) {
+                            getLocation(context, locationClient) { loc -> location = loc }
+                        } else {
+                            permissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
                     }
                 }
             } ?: run {
@@ -87,6 +109,15 @@ fun AttendanceScreen(context: Context) {
     }
 }
 
+// Function to check if permissions are already granted
+fun hasLocationPermissions(context: Context): Boolean {
+    return ContextCompat.checkSelfPermission(
+        context, Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+}
 
 fun authenticateUser(activity: FragmentActivity, onResult: (String) -> Unit) {
     val biometricManager = BiometricManager.from(activity)
@@ -94,7 +125,7 @@ fun authenticateUser(activity: FragmentActivity, onResult: (String) -> Unit) {
         BiometricManager.BIOMETRIC_SUCCESS -> {
             val executor: Executor = ContextCompat.getMainExecutor(activity)
             val biometricPrompt = BiometricPrompt(
-                activity,  // Pass activity instead of context
+                activity,
                 executor,
                 object : BiometricPrompt.AuthenticationCallback() {
                     override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
@@ -126,11 +157,13 @@ fun authenticateUser(activity: FragmentActivity, onResult: (String) -> Unit) {
     }
 }
 
-
 @SuppressLint("MissingPermission")
-fun getLocation(context: Context, fusedLocationClient: FusedLocationProviderClient, onLocationReceived: (String) -> Unit) {
-    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-        ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+fun getLocation(
+    context: Context,
+    fusedLocationClient: FusedLocationProviderClient,
+    onLocationReceived: (String) -> Unit
+) {
+    if (!hasLocationPermissions(context)) {
         onLocationReceived("Permission not granted")
         return
     }
