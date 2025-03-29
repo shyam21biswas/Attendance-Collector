@@ -26,9 +26,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +42,12 @@ import androidx.fragment.app.FragmentActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import java.util.concurrent.Executor
+import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,158 +55,74 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             AttendanceCollectorTheme {
-                AttendanceScreen(this)
+                MainScreen()
 
             }
         }
     }
 }
 
-
-
-
-
+// Define Bottom Navigation Items
+sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
+    object Msg : BottomNavItem("msg", "Message", Icons.Filled.Email)
+    object MarkAttendance : BottomNavItem("markAttendance", "Attendance", Icons.Filled.CheckCircle)
+}
 
 @Composable
-fun AttendanceScreen(context: Context) {
-    var authStatus by remember { mutableStateOf("Click to mark attendance") }
-    var location by remember { mutableStateOf("Location: Not Available") }
+fun MainScreen() {
+    val navController = rememberNavController()
 
-    val locationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    val activity = context as? FragmentActivity
-
-    // Permission Request Launcher
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
-            getLocation(context, locationClient) { loc -> location = loc }
-        } else {
-            location = "Location permission denied"
-        }
-    }
-
-
-
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = authStatus, fontSize = 20.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = location, fontSize = 16.sp)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = {
-            activity?.let { act ->
-                authenticateUser(act) { result ->
-                    authStatus = result
-                    if (result == "Attendance Confirmed!") {
-                        if (hasLocationPermissions(context)) {
-                            getLocation(context, locationClient) { loc -> location = loc }
-                        } else {
-                            permissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                            )
-                        }
-                    }
-                }
-            } ?: run {
-                authStatus = "Error: Activity not found"
-            }
-        }) {
-            Text(text = "Mark Attendance")
+    Scaffold(
+        bottomBar = { MyBottomNavigation(navController) }
+    ) { innerPadding ->
+        NavHost(
+            navController,
+            startDestination = BottomNavItem.Msg.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(BottomNavItem.Msg.route) { MessageScreen() }
+            composable(BottomNavItem.MarkAttendance.route) { AttendanceScreen() }
         }
     }
 }
 
-// Function to check if permissions are already granted
-fun hasLocationPermissions(context: Context): Boolean {
-    return ContextCompat.checkSelfPermission(
-        context, Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(
-                context, Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-}
+@Composable
+fun MyBottomNavigation(navController: NavController) {
+    val items = listOf(BottomNavItem.Msg, BottomNavItem.MarkAttendance)
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-fun authenticateUser(activity: FragmentActivity, onResult: (String) -> Unit) {
-    val biometricManager = BiometricManager.from(activity)
-    when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
-        BiometricManager.BIOMETRIC_SUCCESS -> {
-            val executor: Executor = ContextCompat.getMainExecutor(activity)
-            val biometricPrompt = BiometricPrompt(
-                activity,
-                executor,
-                object : BiometricPrompt.AuthenticationCallback() {
-                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                        super.onAuthenticationSucceeded(result)
-                        onResult("Attendance Confirmed!")
-                    }
-
-                    override fun onAuthenticationFailed() {
-                        super.onAuthenticationFailed()
-                        onResult("Authentication Failed. Try Again.")
-                    }
-
-                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                        super.onAuthenticationError(errorCode, errString)
-                        onResult("Error: $errString")
+    NavigationBar {
+        items.forEach { item ->
+            NavigationBarItem(
+                icon = { Icon(item.icon, contentDescription = item.label) },
+                label = { Text(item.label) },
+                selected = currentRoute == item.route,
+                onClick = {
+                    navController.navigate(item.route) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 }
             )
-
-            val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Confirm Attendance")
-                .setSubtitle("Use fingerprint to mark attendance")
-                .setNegativeButtonText("Cancel")
-                .build()
-
-            biometricPrompt.authenticate(promptInfo)
-        }
-        else -> onResult("Biometric authentication not supported on this device.")
-    }
-}
-// Helper function to check if location services are enabled
-fun isLocationEnabled(context: Context): Boolean {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-}
-
-@SuppressLint("MissingPermission")
-fun getLocation(
-    context: Context,
-    fusedLocationClient: FusedLocationProviderClient,
-    onLocationReceived: (String) -> Unit
-) {
-    // Check if location services are enabled
-    if (!isLocationEnabled(context)) {
-        onLocationReceived("Please turn on location services")
-        // Optionally, you can open the location settings:
-        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-        return
-    }
-
-    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-        ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-        onLocationReceived("Permission not granted")
-        return
-    }
-
-    fusedLocationClient.getCurrentLocation(
-        com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
-        null // You can pass a CancellationToken if needed
-    ).addOnSuccessListener { location ->
-        if (location != null) {
-            onLocationReceived("Location: ${location.latitude}, ${location.longitude}")
-        } else {
-            onLocationReceived("Location not found")
         }
     }
 }
+
+@Composable
+fun MessageScreen() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Text(text = "Message Screen", style = MaterialTheme.typography.headlineMedium)
+    }
+}
+
+@Composable
+fun AttendanceScreen() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Text(text = "Attendance Screen", style = MaterialTheme.typography.headlineMedium)
+    }
+}
+
+
+
