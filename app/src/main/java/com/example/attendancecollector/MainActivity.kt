@@ -119,11 +119,94 @@ fun MyBottomNavigation(navController: NavController) {
         }
     }
 }
-
+/*
 @Composable
 fun MessageScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-        Text(text = "Message Screen", style = MaterialTheme.typography.headlineMedium)
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        Column()
+        {
+            Text(text = "Message Screen", style = MaterialTheme.typography.headlineMedium)
+            Button(onClick = { /*TODO*/ }) {
+                Text(text = "Mark Attendance")
+
+            }
+
+
+        }
+    }
+}
+*/
+@Composable
+fun MessageScreen() {
+    val context = LocalContext.current
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+   // val activity = context as? FragmentActivity
+    var locationText by remember { mutableStateOf("Location: Not Available") }
+   // var locatioText1 by remember { mutableStateOf("Location: Not Available") }
+
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            getLocationt(context, fusedLocationClient) { latLng ->
+                globalLatitude = latLng.first
+                globalLongitude = latLng.second
+                locationText = "Lat: ${latLng.first}, Lon: ${latLng.second}"
+            }
+        } else {
+            locationText = "Permission Denied"
+        }
+    }
+
+    fun requestLocation() {
+        if (hasLocationPermissions(context)) {
+            getLocationt(context, fusedLocationClient) { latLng ->
+                globalLatitude = latLng.first
+                globalLongitude = latLng.second
+                locationText = "Lat: ${latLng.first}, Lon: ${latLng.second}"
+            }
+        } else {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "Message Screen", style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = { requestLocation() }) {
+                Text(text = "Get & Store Location")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = locationText)
+            Text(text = "Lat: $globalLatitude, Lon: $globalLongitude")
+
+
+            if (globalLatitude != null && globalLongitude != null) {
+                val distance = calculateDistance(
+                    globalLatitude!!, globalLongitude!!,
+                    fixedLatitude, fixedLongitude
+                )
+                dis = distance
+                loca = "You are $distance m away from college."
+            }
+
+            Text(text = loca)
+
+        }
     }
 }
 
@@ -151,6 +234,7 @@ fun AttendanceScreen(navController: NavController) {
         LazyColumn {
             items(sampleAttendanceList) { item ->
                 AttendanceCard(item, navController)
+
             }
         }
     }
@@ -158,12 +242,17 @@ fun AttendanceScreen(navController: NavController) {
 
 @Composable
 fun AttendanceCard(attendanceItem: AttendanceItem, navController: NavController) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .clickable {
+                //put condition here
+                if(dis > 5) Toast.makeText(context, "you are $dis so farr..", Toast.LENGTH_LONG).show()
+                else{
                 navController.navigate("luv") // Navigate to the attendance screen
+                     }
             },
         shape = MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(8.dp)
@@ -187,7 +276,7 @@ fun MarkAttendanceScreen() {
 
 
 
-//my coe.....................
+//my coe.....................   //main logic.............................
 
 @Composable
 fun AttendanceScreenp(navController: NavController) {
@@ -340,6 +429,30 @@ fun getLocation(
             onLocationReceived("Location: ${location.latitude}, ${location.longitude}")
         } else {
             onLocationReceived("Location not found")
+        }
+    }
+}
+
+@SuppressLint("MissingPermission")
+fun getLocationt(
+    context: Context,
+    fusedLocationClient: FusedLocationProviderClient,
+    onLocationReceived: (Pair<Double, Double>) -> Unit
+) {
+    if (!isLocationEnabled(context)) {
+        Toast.makeText(context, "Please enable location services", Toast.LENGTH_SHORT).show()
+        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+        return
+    }
+
+    fusedLocationClient.getCurrentLocation(
+        com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+        null
+    ).addOnSuccessListener { location ->
+        if (location != null) {
+            onLocationReceived(Pair(location.latitude, location.longitude))
+        } else {
+            Toast.makeText(context, "Location not found", Toast.LENGTH_SHORT).show()
         }
     }
 }

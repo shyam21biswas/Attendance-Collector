@@ -22,3 +22,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 
+var globalLatitude: Double? = null
+var globalLongitude: Double? = null
+
+// Fixed global location (Example: College coordinates)
+val fixedLatitude = 26.2653272    // Delhi latitude
+val fixedLongitude = 81.5046225   // Delhi longitude
