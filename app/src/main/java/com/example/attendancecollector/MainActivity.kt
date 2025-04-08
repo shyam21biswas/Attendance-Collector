@@ -17,6 +17,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
 import android.provider.Settings
 import android.widget.Toast
@@ -119,34 +120,13 @@ fun MyBottomNavigation(navController: NavController) {
         }
     }
 }
-/*
-@Composable
-fun MessageScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        Column()
-        {
-            Text(text = "Message Screen", style = MaterialTheme.typography.headlineMedium)
-            Button(onClick = { /*TODO*/ }) {
-                Text(text = "Mark Attendance")
-
-            }
 
 
-        }
-    }
-}
-*/
 @Composable
 fun MessageScreen() {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-   // val activity = context as? FragmentActivity
     var locationText by remember { mutableStateOf("Location: Not Available") }
-   // var locatioText1 by remember { mutableStateOf("Location: Not Available") }
-
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -163,7 +143,7 @@ fun MessageScreen() {
         }
     }
 
-    fun requestLocation() {
+    LaunchedEffect(Unit) {
         if (hasLocationPermissions(context)) {
             getLocationt(context, fusedLocationClient) { latLng ->
                 globalLatitude = latLng.first
@@ -180,32 +160,25 @@ fun MessageScreen() {
         }
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+    // Calculate Distance if location is available
+    if (globalLatitude != null && globalLongitude != null) {
+        val distance = calculateDistance(
+            globalLatitude!!, globalLongitude!!,
+            fixedLatitude, fixedLongitude
+        )
+        dis = distance
+        loca = "You are $distance m away from college."
+    }
+
+    // UI
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = "Message Screen", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { requestLocation() }) {
-                Text(text = "Get & Store Location")
-            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = locationText)
             Text(text = "Lat: $globalLatitude, Lon: $globalLongitude")
-
-
-            if (globalLatitude != null && globalLongitude != null) {
-                val distance = calculateDistance(
-                    globalLatitude!!, globalLongitude!!,
-                    fixedLatitude, fixedLongitude
-                )
-                dis = distance
-                loca = "You are $distance m away from college."
-            }
-
+            Spacer(modifier = Modifier.height(8.dp))
             Text(text = loca)
-
         }
     }
 }
@@ -243,16 +216,15 @@ fun AttendanceScreen(navController: NavController) {
 @Composable
 fun AttendanceCard(attendanceItem: AttendanceItem, navController: NavController) {
     val context = LocalContext.current
+
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .clickable {
-                //put condition here
-                if(dis > 5) Toast.makeText(context, "you are $dis so farr..", Toast.LENGTH_LONG).show()
-                else{
-                navController.navigate("luv") // Navigate to the attendance screen
-                     }
+                checkLocationAndNavigate(context, fusedLocationClient, navController)
             },
         shape = MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(8.dp)
@@ -456,4 +428,5 @@ fun getLocationt(
         }
     }
 }
+
 
